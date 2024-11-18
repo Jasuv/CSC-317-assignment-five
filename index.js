@@ -29,7 +29,6 @@ app.get('/todos', (req, res) => {
   const completed = req.query.completed;
   let sql = 'SELECT * FROM todos';
   if (completed !== undefined) {
-    console.log("AAAAAAAAAAAA");
     sql += ` WHERE completed = '${completed}'`;
   }
   db.all(sql, [], (err, rows) => {
@@ -52,10 +51,23 @@ app.put('/todos/:id', (req, res) => {
   );
 });
 
+// POST /todos/complete-all - Mark all to-dos as completed
+app.post('/todos/complete-all', (req, res) => {
+  db.run(
+    'UPDATE todos SET completed = ?', 
+    ['true'],
+    function() {
+      db.all('SELECT * FROM todos', [], (err, rows) => {
+        res.status(201).json(rows);
+      });
+    }
+  );
+});
+
 // DELETE /todos/:id - Delete a to-do by ID
 app.delete('/todos/:id', (req, res) => {
   const id = req.params.id;
-  db.run('DELETE FROM todos WHERE id = ?', id, function() {
+  db.run('DELETE FROM todos WHERE id = ?', [id], function() {
     res.status(204).send();
   });
 });
