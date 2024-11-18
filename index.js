@@ -1,105 +1,66 @@
 const express = require('express');
+const sqlite3 = require('sqlite3')
 const app = express();
 const port = 3000;
 
 // Middleware to parse JSON bodies
 app.use(express.json());
 
-// Sample data
-let todos = [
-  { id: 1, task: "Learn Node.js", completed: false },
-  { id: 2, task: "Build a REST API", completed: false }
-];
+// Open SQLite db
+const db = new sqlite3.Database('./todos.db');
 
-/*
-Question 1: Add a "Priority" Field to the To-Do API
-example usage:
-curl -X POST http://localhost:3000/todos -H "Content-Type: application/json" -d '{"task": "Complete Express assignment", "priority": "high"}'
-*/
+// POST /todos - Add a new to-do
 app.post('/todos', (req, res) => {
-  const newTodo = {
-    id: todos.length + 1,
-    task: req.body.task,
-    completed: false,
-    priority: req.body.priority || "medium"
-  };
-  todos.push(newTodo);
-  res.status(201).json(newTodo);
+  const id = this.lastID + 1;
+  const task = req.body.task;
+  const priority = req.body.priority || 'medium';
+  const completed = 'false';
+  db.run(
+    'INSERT INTO todos (id, task, completed, priority) VALUES (?, ?, ?, ?)', 
+    [id, task, completed, priority],
+    function() {
+      res.status(201).json({ id, task, completed, priority });
+    }
+  );
 });
 
-/* OLD GET endpoint, please look at Q3
-// GET /todos - Retrieve all to-do items
-app.get('/todos', (req, res) => {
-  res.json(todos);
-});
-*/
-
-/* 
-Question 3: Retrieve all to-do items or filter by completed status.
-after completing this part, you need to comment out the GET end point 
-already implemented here to test this new GET endpoint!
-example usage:
-curl http://localhost:3000/todos?completed=true
-curl http://localhost:3000/todos?completed=false
-*/
+// GET /todos - Get all to-dos
 app.get('/todos', (req, res) => {
   const completed = req.query.completed;
+  let sql = 'SELECT * FROM todos';
   if (completed !== undefined) {
-    return res.json(todos.filter(todo => todo.completed === (completed === "true")));
+    console.log("AAAAAAAAAAAA");
+    sql += ` WHERE completed = '${completed}'`;
   }
-  res.json(todos);
+  db.all(sql, [], (err, rows) => {
+    res.json(rows);
+  });
 });
 
-/* OLD POST endpoint, please look at Q1
-// POST /todos - Add a new to-do item
-app.post('/todos', (req, res) => {
-  const newTodo = {
-    id: todos.length + 1,
-    task: req.body.task,
-    completed: false
-  };
-  todos.push(newTodo);
-  res.status(201).json(newTodo);
-});
-*/
-
-// PUT /todos/:id - Update an existing to-do item
+// PUT /todos/:id - Update a to-do by ID
 app.put('/todos/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  const todo = todos.find(t => t.id === id);
-  if (!todo) {
-    return res.status(404).send("To-Do item not found");
-  }
-  todo.task = req.body.task || todo.task;
-  todo.completed = req.body.completed !== undefined ? req.body.completed : todo.completed;
-  res.json(todo);
+  const id = req.params.id;
+  const task = req.body.task;
+  const completed = req.body.completed ? 'true' : 'false';
+  const priority = req.body.priority;
+  db.run(
+    'UPDATE todos SET task = ?, completed = ?, priority = ? WHERE id = ?',
+    [task, completed, priority, id],
+    function() {
+      res.status(201).json({ id, task, completed, priority });
+    }
+  );
 });
 
-/*
-Question 2: Implement a "Complete All" Endpoint
-example usage: 
-curl -X PUT http://localhost:3000/todos/complete-all
-*/
-app.put('/todos/complete-all', (req, res) => {
-  todos.forEach(item=> {item.completed = true})
-  if (!todos) {
-    return res.status(404).send("To-Do item not found");
-  }
-  res.json(todos);
-});
-
-// DELETE /todos/:id - Delete a to-do item
+// DELETE /todos/:id - Delete a to-do by ID
 app.delete('/todos/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  const index = todos.findIndex(t => t.id === id);
-  if (index === -1) {
-    return res.status(404).send("To-Do item not found");
-  }
-  todos.splice(index, 1);
-  res.status(204).send();
+  const id = req.params.id;
+  db.run('DELETE FROM todos WHERE id = ?', id, function() {
+    res.status(204).send();
+  });
 });
 
 // Start the server
 app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+  console.log(`Server running at http://localhost:${port}`);
 });
